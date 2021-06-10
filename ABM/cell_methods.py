@@ -1,7 +1,7 @@
 import random as r
 
 from cell_backend import *
-from backend import record_time, normal_vector
+from pythonabm import record_time, normal_vector
 
 
 class CellMethods:
@@ -409,6 +409,9 @@ class CellMethods:
             else:
                 move_dt = self.move_dt
 
+            # turn size into numpy array
+            size = np.asarray(self.size)
+
             # if using CUDA GPU
             if self.cuda:
                 # allow the following arrays to be passed to the GPU
@@ -421,7 +424,7 @@ class CellMethods:
                 # call the CUDA kernel, sending arrays to GPU
                 apply_forces_gpu[bpg, tpb](cuda.to_device(self.jkr_forces), cuda.to_device(self.motility_forces),
                                            locations, cuda.to_device(self.radii), cuda.to_device(stokes),
-                                           cuda.to_device(self.size), cuda.to_device(move_dt))
+                                           cuda.to_device(size), cuda.to_device(move_dt))
 
                 # return the following arrays back from the GPU
                 new_locations = locations.copy_to_host()
@@ -429,7 +432,7 @@ class CellMethods:
             # otherwise use parallelized JIT function
             else:
                 new_locations = apply_forces_cpu(self.number_agents, self.jkr_forces, self.motility_forces,
-                                                 self.locations, self.radii, stokes, self.size, move_dt)
+                                                 self.locations, self.radii, stokes, size, move_dt)
 
             # update the locations and reset the JKR forces back to zero
             self.locations = new_locations

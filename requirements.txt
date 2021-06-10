@@ -1,7 +1,5 @@
-numpy<=1.19.3
 numba
-opencv-python
-psutil
-python-igraph
+numpy
 pyyaml
-scipy
+pythonabm
+opencv-python

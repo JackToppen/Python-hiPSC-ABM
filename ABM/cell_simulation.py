@@ -1,8 +1,7 @@
 import numpy as np
 import random as r
+from pythonabm import Simulation
 
-from backend import template_params
-from simulation import Simulation
 from cell_methods import CellMethods
 from cell_outputs import CellOutputs
 
@@ -15,16 +14,9 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # initialize the Simulation object
         Simulation.__init__(self, name, output_path)
 
-        # get parameters from experimental template file (example in simulation.py)
-        keys = template_params(self.templates_path + "experimental.yaml")
-        self.num_gata6 = keys["num_gata6"]
-        self.output_tda = keys["output_tda"]
-        self.output_gradients = keys["output_gradients"]
-        self.group = keys["group"]
-        self.dox_step = keys["dox_step"]
-        self.guye_move = keys["guye_move"]
-        self.lonely_thresh = keys["lonely_thresh"]
-        self.color_mode = keys["color_mode"]
+        # read parameters from YAML file and add them to instance variables
+        self.yaml_parameters("templates\\general.yaml")
+        self.yaml_parameters("templates\\experimental.yaml")
 
         # hold these additional paths
         self.gradients_path = self.main_path + name + "_gradients" + self.separator  # gradients output directory
@@ -74,59 +66,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)    # for testing morphogen release methods
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
 
-    def steps(self):
-        """ Overrides the steps() method from the Simulation class.
-        """
-        # if True, record starting values/image for the simulation
-        if self.record_initial_step:
-            self.record_initials()
-
-        # Iterate over all steps specified in the Simulation object
-        for self.current_step in range(self.beginning_step, self.end_step + 1):
-            # Records model run time for the step and prints the current step/number of cells.
-            self.info()
-
-            # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-            self.get_neighbors("neighbor_graph", 15)
-
-            # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
-            # intercellular, and extracellular conditions through a series of separate methods.
-            self.cell_division()
-            self.cell_death()
-            self.cell_pathway()
-            self.cell_differentiate()
-            # self.cell_growth()
-            # self.cell_stochastic_update()
-            # self.cell_diff_surround()
-
-            # Simulates diffusion the specified extracellular gradient via the forward time centered space method.
-            # self.update_diffusion("fgf4_values")
-            # self.update_diffusion("fgf4_alt")    # for testing morphogen release methods
-
-            # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
-            # and presence of neighbors.
-            self.cell_motility()
-
-            # Through the series of methods, attempt to move the cells to a state of physical equilibrium between
-            # adhesive and repulsive forces acting on the cells, while applying active motility forces.
-            self.apply_forces()
-
-            # Saves multiple forms of information about the simulation at the current step, including an image of the
-            # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
-            # See the outputs.txt template file for turning off certain outputs.
-            self.step_image()
-            self.step_values(arrays=["locations", "FGF4", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
-                                     "div_counters"])
-            # self.step_gradients()
-            self.step_tda()
-            self.temp()
-            self.data()
-
-        # Ends the simulation by creating a video from all of the step images
-        self.create_video()
-
-    def agent_initials(self):
-        """ Overrides the agent_initials() method from the Simulation class.
+    def setup(self):
+        """ Overrides the setup() method from the Simulation class.
         """
         # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
         self.add_agents(self.num_to_start)
@@ -155,3 +96,51 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # Create graphs for holding cell neighbors
         self.agent_graph("neighbor_graph")
         self.agent_graph("jkr_graph")
+
+        # record initial values
+        self.step_image()
+        self.step_values(arrays=["locations", "FGF4", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
+                                 "div_counters"])
+        self.step_tda()
+
+    def step(self):
+        """ Overrides the step() method from the Simulation class.
+        """
+        # records step run time and prints the current step and number of agents
+        self.info()
+
+        # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
+        self.get_neighbors("neighbor_graph", 15)
+
+        # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
+        # intercellular, and extracellular conditions through a series of separate methods.
+        self.cell_division()
+        self.cell_death()
+        self.cell_pathway()
+        self.cell_differentiate()
+        # self.cell_growth()
+        # self.cell_stochastic_update()
+        # self.cell_diff_surround()
+
+        # Simulates diffusion the specified extracellular gradient via the forward time centered space method.
+        # self.update_diffusion("fgf4_values")
+        # self.update_diffusion("fgf4_alt")    # for testing morphogen release methods
+
+        # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
+        # and presence of neighbors.
+        self.cell_motility()
+
+        # Through the series of methods, attempt to move the cells to a state of physical equilibrium between
+        # adhesive and repulsive forces acting on the cells, while applying active motility forces.
+        self.apply_forces()
+
+        # Saves multiple forms of information about the simulation at the current step, including an image of the
+        # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
+        # See the outputs.txt template file for turning off certain outputs.
+        self.step_image()
+        self.step_values(arrays=["locations", "FGF4", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
+                                 "div_counters"])
+        # self.step_gradients()
+        self.step_tda()
+        self.temp()
+        self.data()
